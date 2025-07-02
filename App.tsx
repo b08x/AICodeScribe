@@ -1,20 +1,21 @@
 
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getAiProvider } from './services/ai';
 import { IAiProvider, IAiProviderConfig, IChatSession } from './services/ai/provider';
 
-import { DocumentationDisplay } from './components/DocumentationDisplay';
 import { LoaderIcon } from './components/icons/LoaderIcon';
 import { SparklesIcon } from './components/icons/SparklesIcon';
 import { UploadIcon } from './components/icons/UploadIcon';
 import { FileIcon } from './components/icons/FileIcon';
 import { LandingPage } from './components/LandingPage';
 import { ChatInterface, ChatMessage } from './components/ChatInterface';
-import { CopyButton } from './components/CopyButton';
 import { BacklogDisplayModal } from './components/BacklogDisplayModal';
 import { SetupPage } from './components/SetupPage';
+import { DocumentationSidebar, DocSection } from './components/DocumentationSidebar';
+import { DocumentationDetailModal } from './components/DocumentationDetailModal';
 
-const App: React.FC = () => {
+
+const App = () => {
   const [view, setView] = useState<'landing' | 'setup' | 'app'>('landing');
   const [aiConfig, setAiConfig] = useState<IAiProviderConfig | null>(null);
 
@@ -28,8 +29,12 @@ const App: React.FC = () => {
   const [projectFilesContent, setProjectFilesContent] = useState<string>('');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [generatedDocs, setGeneratedDocs] = useState<string>('');
   const [error, setError] = useState<string>('');
+  
+  // Documentation state
+  const [docSections, setDocSections] = useState<DocSection[]>([]);
+  const [isDocModalOpen, setIsDocModalOpen] = useState<boolean>(false);
+  const [selectedDocSection, setSelectedDocSection] = useState<DocSection | null>(null);
 
   // Chat state
   const [chatSession, setChatSession] = useState<IChatSession | null>(null);
@@ -120,19 +125,48 @@ const App: React.FC = () => {
     };
     reader.readAsText(file);
   };
+  
+  const parseDocsToSections = (markdown: string): DocSection[] => {
+    if (!markdown) return [];
+    const lines = markdown.split('\n');
+    const sections: DocSection[] = [];
+    let currentSectionContent: string[] = [];
+
+    for (const line of lines) {
+        if (line.trim().startsWith('## ')) {
+            if (currentSectionContent.length > 0) {
+                const fullContent = currentSectionContent.join('\n');
+                const title = currentSectionContent[0].replace(/^##\s+/, '').trim();
+                sections.push({ title, markdown: fullContent });
+            }
+            currentSectionContent = [line];
+        } else if (currentSectionContent.length > 0) {
+            currentSectionContent.push(line);
+        }
+    }
+
+    if (currentSectionContent.length > 0) {
+        const fullContent = currentSectionContent.join('\n');
+        const title = currentSectionContent[0].replace(/^##\s+/, '').trim();
+        sections.push({ title, markdown: fullContent });
+    }
+
+    return sections;
+  };
 
   const handleGenerateClick = useCallback(async () => {
     if (!gemfileContent || !projectFilesContent || isLoading || !aiProvider) return;
 
     setIsLoading(true);
     setError('');
-    setGeneratedDocs('');
+    setDocSections([]);
     setChatSession(null);
     setChatHistory([]);
 
     try {
       const { docs, initialQuestion } = await aiProvider.generateDocumentation(gemfileContent, projectFilesContent);
-      setGeneratedDocs(docs);
+      const sections = parseDocsToSections(docs);
+      setDocSections(sections);
       
       const chat = await aiProvider.createChatSession(gemfileContent, projectFilesContent, docs);
       setChatSession(chat);
@@ -152,26 +186,45 @@ const App: React.FC = () => {
     }
   }, [gemfileContent, projectFilesContent, isLoading, aiProvider]);
 
-  const handleSendMessage = useCallback(async (message: string) => {
-    if (!message.trim() || !chatSession || isChatLoading) return;
+  const handleSendMessage = useCallback(async (
+    message: string, 
+    options: { isRegenerating: boolean, signal?: AbortSignal }
+  ) => {
+    if (!message.trim() || !chatSession) return;
     
+    let historyForProvider = [...chatHistory];
+    
+    if (options.isRegenerating) {
+        // Find the last user message to remove it and the AI's response to it.
+        const lastUserMessageIndex = historyForProvider.map(m => m.role).lastIndexOf('user');
+        if (lastUserMessageIndex !== -1) {
+            historyForProvider = historyForProvider.slice(0, lastUserMessageIndex);
+        }
+    }
+
     const userMessage: ChatMessage = { role: 'user', text: message };
-    const currentChatHistory = [...chatHistory, userMessage];
+    const currentChatHistory = [...historyForProvider, userMessage];
     setChatHistory(currentChatHistory);
     setIsChatLoading(true);
 
     try {
-      const response = await chatSession.sendMessage(message, currentChatHistory);
+      // Pass the history *before* the new user message to the provider for context
+      const response = await chatSession.sendMessage(message, historyForProvider, options.signal);
       const modelMessage: ChatMessage = { role: 'model', text: response.text };
       setChatHistory(prev => [...prev, modelMessage]);
     } catch (err) {
+       if (err instanceof Error && err.name === 'AbortError') {
+           const abortedMessage: ChatMessage = { role: 'model', text: "Message generation was stopped by the user." };
+           setChatHistory(prev => [...prev, abortedMessage]);
+           return;
+       }
        const errorMessageText = err instanceof Error ? err.message : 'Sorry, I encountered an error. Please try again.';
        const errorMessage: ChatMessage = { role: 'model', text: errorMessageText };
        setChatHistory(prev => [...prev, errorMessage]);
     } finally {
       setIsChatLoading(false);
     }
-  }, [chatSession, isChatLoading, chatHistory]);
+  }, [chatSession, chatHistory]);
   
   const handleGenerateBacklog = useCallback(async () => {
     if (chatHistory.length === 0 || isBacklogLoading || !aiProvider) return;
@@ -192,6 +245,17 @@ const App: React.FC = () => {
         setIsBacklogLoading(false);
     }
   }, [chatHistory, isBacklogLoading, aiProvider]);
+
+  const handleDocSectionClick = (section: DocSection) => {
+      setSelectedDocSection(section);
+      setIsDocModalOpen(true);
+  };
+
+  const handleCloseDocModal = () => {
+      setIsDocModalOpen(false);
+      setSelectedDocSection(null);
+  };
+
 
   if (view === 'landing') {
     return <LandingPage onEnterApp={() => setView('setup')} />;
@@ -317,30 +381,26 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {isLoading && !generatedDocs && (
+            {isLoading && docSections.length === 0 && (
               <div className="flex justify-center items-center flex-col gap-4 bg-slate-800/50 rounded-lg p-12 border border-slate-700 shadow-lg">
                   <LoaderIcon />
                   <p className="text-lg text-slate-300 animate-pulse">Analyzing your project with {aiConfig?.providerName}... this may take a moment.</p>
               </div>
             )}
 
-            {generatedDocs && !isLoading && (
-              <>
-                <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 shadow-lg" id="documentation">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-semibold text-cyan-400">Generated Documentation</h2>
-                    <CopyButton textToCopy={generatedDocs} />
+            {docSections.length > 0 && !isLoading && (
+              <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                  <DocumentationSidebar sections={docSections} onSectionClick={handleDocSectionClick} />
+                  <div className="flex-1">
+                      <ChatInterface
+                          history={chatHistory}
+                          isLoading={isChatLoading}
+                          onSendMessage={handleSendMessage}
+                          isBacklogLoading={isBacklogLoading}
+                          onGenerateBacklog={handleGenerateBacklog}
+                      />
                   </div>
-                  <DocumentationDisplay markdown={generatedDocs} />
-                </div>
-                <ChatInterface
-                    history={chatHistory}
-                    isLoading={isChatLoading}
-                    onSendMessage={handleSendMessage}
-                    isBacklogLoading={isBacklogLoading}
-                    onGenerateBacklog={handleGenerateBacklog}
-                />
-              </>
+              </div>
             )}
           </div>
 
@@ -355,6 +415,11 @@ const App: React.FC = () => {
         jsonContent={backlogJson}
         onClose={() => setIsBacklogVisible(false)}
         error={error}
+      />
+      <DocumentationDetailModal
+        isOpen={isDocModalOpen}
+        section={selectedDocSection}
+        onClose={handleCloseDocModal}
       />
     </>
   );

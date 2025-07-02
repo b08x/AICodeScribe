@@ -25,7 +25,7 @@ export interface ChatResponse {
 }
 
 export interface IChatSession {
-    sendMessage(message: string, history: ChatMessage[]): Promise<ChatResponse>;
+    sendMessage(message: string, history: ChatMessage[], signal?: AbortSignal): Promise<ChatResponse>;
 }
 
 export interface IAiProvider {

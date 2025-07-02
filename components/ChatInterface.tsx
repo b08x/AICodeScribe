@@ -1,10 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import { useState, useRef, useEffect } from 'react';
 import { SendIcon } from './icons/SendIcon';
 import { MarkdownContent } from './MarkdownContent';
 import { CopyButton } from './CopyButton';
 import { TaskListIcon } from './icons/TaskListIcon';
 import { LoaderIcon } from './icons/LoaderIcon';
 import { MicrophoneIcon } from './icons/MicrophoneIcon';
+import { StopIcon } from './icons/StopIcon';
+import { EditIcon } from './icons/EditIcon';
+import { CloseIcon } from './icons/CloseIcon';
 
 // Type definitions for the Web Speech API to fix TypeScript errors.
 interface SpeechRecognition {
@@ -30,7 +34,7 @@ export interface ChatMessage {
 interface ChatInterfaceProps {
   history: ChatMessage[];
   isLoading: boolean;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, options: { isRegenerating: boolean, signal?: AbortSignal }) => void;
   isBacklogLoading: boolean;
   onGenerateBacklog: () => void;
 }
@@ -43,10 +47,13 @@ declare global {
   }
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading, onSendMessage, isBacklogLoading, onGenerateBacklog }) => {
+export const ChatInterface = ({ history, isLoading, onSendMessage, isBacklogLoading, onGenerateBacklog }: ChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [isEditingLastMessage, setIsEditingLastMessage] = useState(false);
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -80,16 +87,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
 
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
-      let interimTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
           finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
         }
       }
-       // We only update on final results to avoid weird cursor jumps, but you could use interim if desired
       if (finalTranscript) {
          setInput(prevInput => (prevInput.trim() === '' ? '' : prevInput.trim() + ' ') + finalTranscript.trim());
       }
@@ -97,15 +99,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
 
     recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
-      if (isListening) {
-        setIsListening(false);
-      }
+      if (isListening) setIsListening(false);
     };
 
     recognition.onend = () => {
-      if(isListening) {
-        setIsListening(false);
-      }
+      if(isListening) setIsListening(false);
     };
     
     recognitionRef.current = recognition;
@@ -113,7 +111,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
     return () => {
       recognition.stop();
     };
-  }, []); // isListening is intentionally omitted to avoid re-creating the object
+  }, [isListening]);
 
   const handleToggleListening = () => {
     if (!recognitionRef.current) return;
@@ -130,14 +128,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
 
 
   const handleSend = () => {
-    if (input.trim()) {
-      if (isListening) {
-        recognitionRef.current?.stop();
-        setIsListening(false);
-      }
-      onSendMessage(input);
-      setInput('');
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
     }
+    
+    abortControllerRef.current = new AbortController();
+    onSendMessage(trimmedInput, {
+      isRegenerating: isEditingLastMessage,
+      signal: abortControllerRef.current.signal,
+    });
+    
+    setInput('');
+    setIsEditingLastMessage(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -146,6 +152,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
       handleSend();
     }
   };
+
+  const handleStopGenerating = () => {
+    abortControllerRef.current?.abort();
+  };
+  
+  const handleEditLastMessage = () => {
+    const lastUserMessage = history.slice().reverse().find(msg => msg.role === 'user');
+    if (!lastUserMessage) return;
+
+    setInput(lastUserMessage.text);
+    setIsEditingLastMessage(true);
+    textareaRef.current?.focus();
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingLastMessage(false);
+    setInput('');
+  };
+  
+  const lastUserMessageIndex = history.map(m => m.role).lastIndexOf('user');
 
   return (
     <div className="mt-6 bg-slate-800/50 rounded-lg border border-slate-700 shadow-lg flex flex-col" style={{height: '70vh'}}>
@@ -157,7 +183,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
         {history.length > 1 && (
             <button
                 onClick={onGenerateBacklog}
-                disabled={isBacklogLoading}
+                disabled={isBacklogLoading || isLoading}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {isBacklogLoading ? (
@@ -182,11 +208,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
                 <div className="w-8 h-8 rounded-full bg-indigo-500 flex-shrink-0 flex items-center justify-center font-bold text-sm">AI</div>
               )}
               <div className={`relative group max-w-xl p-4 rounded-lg shadow ${msg.role === 'user' ? 'bg-slate-700' : 'bg-slate-800'}`}>
-                {msg.role === 'model' && (
-                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <CopyButton textToCopy={msg.text} />
-                  </div>
-                )}
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
+                  {msg.role === 'model' && <CopyButton textToCopy={msg.text} />}
+                  {msg.role === 'user' && index === lastUserMessageIndex && !isLoading && !isBacklogLoading && (
+                    <button onClick={handleEditLastMessage} className="p-2 rounded-md transition-colors text-slate-400 hover:bg-slate-600 hover:text-slate-100" aria-label="Edit message">
+                      <EditIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
                 <MarkdownContent content={msg.text} />
               </div>
             </div>
@@ -207,6 +236,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
         </div>
       </div>
       <div className="p-4 border-t border-slate-700 bg-slate-800/70">
+        {isEditingLastMessage && (
+            <div className="flex items-center justify-between mb-2 px-1">
+                <p className="text-sm text-cyan-300">Editing message...</p>
+                <button onClick={handleCancelEdit} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-100 p-1 rounded-md hover:bg-slate-700">
+                    <CloseIcon /> Cancel
+                </button>
+            </div>
+        )}
         <div className="flex items-end gap-2 bg-slate-900 rounded-lg border border-slate-600 focus-within:ring-2 focus-within:ring-indigo-500">
           <textarea
             ref={textareaRef}
@@ -218,22 +255,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, isLoading
             className="flex-1 bg-transparent p-3 resize-none outline-none text-slate-200 placeholder-slate-500"
             disabled={isLoading || isBacklogLoading}
           />
-           <button
-            onClick={handleToggleListening}
-            disabled={isLoading || isBacklogLoading}
-            className="m-2 p-2 rounded-md text-slate-400 hover:bg-slate-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-            aria-label={isListening ? "Stop listening" : "Start listening"}
-          >
-            <MicrophoneIcon className={`${isListening ? 'text-red-500 animate-pulse' : ''}`} />
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading || isBacklogLoading}
-            className="m-2 p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-            aria-label="Send message"
-          >
-            <SendIcon />
-          </button>
+          {isLoading ? (
+             <button
+                onClick={handleStopGenerating}
+                className="m-2 flex items-center justify-center gap-2 px-4 py-2 font-semibold text-white bg-red-600 rounded-lg shadow-md hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-slate-900 transition-all"
+                aria-label="Stop generating"
+              >
+                <StopIcon />
+                Stop
+              </button>
+          ) : (
+            <>
+              <button
+                onClick={handleToggleListening}
+                disabled={isLoading || isBacklogLoading}
+                className="m-2 p-2 rounded-md text-slate-400 hover:bg-slate-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                aria-label={isListening ? "Stop listening" : "Start listening"}
+              >
+                <MicrophoneIcon className={`${isListening ? 'text-red-500 animate-pulse' : ''}`} />
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading || isBacklogLoading}
+                className="m-2 p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

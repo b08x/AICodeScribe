@@ -3,5 +3,6 @@
     "microphone"
   ],
   "name": "AI Code-Scribe",
-  "description": "Upload your Gemfile and project codebase to generate your knowledge base."
+  "description": "Upload your Gemfile and project codebase to generate your knowledge base.",
+  "prompt": ""
 }

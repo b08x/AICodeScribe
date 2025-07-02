@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { providers, ProviderDetails } from '../config';
 import { IAiProviderConfig } from '../services/ai/provider';
 import { validateApiKey } from '../services/ai';
@@ -11,7 +11,7 @@ interface SetupPageProps {
   onConfigured: (config: IAiProviderConfig) => void;
 }
 
-export const SetupPage: React.FC<SetupPageProps> = ({ onConfigured }) => {
+export const SetupPage = ({ onConfigured }: SetupPageProps) => {
   const [selectedProviderKey, setSelectedProviderKey] = useState<string>(providers[0].key);
   const [apiKey, setApiKey] = useState<string>('');
   
