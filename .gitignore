@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+AICodeScribe.code-workspace
+ai-code-scribe.json
