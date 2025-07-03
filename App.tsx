@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getAiProvider } from './services/ai';
 import { IAiProvider, IAiProviderConfig, IChatSession } from './services/ai/provider';
+import { RAGProvider } from './services/rag';
 
 import { LoaderIcon } from './components/icons/LoaderIcon';
 import { SparklesIcon } from './components/icons/SparklesIcon';
@@ -17,12 +18,22 @@ import { DocumentationDetailModal } from './components/DocumentationDetailModal'
 
 const App = () => {
   const [view, setView] = useState<'landing' | 'setup' | 'app'>('landing');
-  const [aiConfig, setAiConfig] = useState<IAiProviderConfig | null>(null);
+  const [chatConfig, setChatConfig] = useState<IAiProviderConfig | null>(null);
+  const [embeddingConfig, setEmbeddingConfig] = useState<IAiProviderConfig | null>(null);
+  const [enableRAG, setEnableRAG] = useState<boolean>(true);
 
   const aiProvider: IAiProvider | null = useMemo(() => {
-    if (!aiConfig) return null;
-    return getAiProvider(aiConfig);
-  }, [aiConfig]);
+    if (!chatConfig) return null;
+    
+    const chatProvider = getAiProvider(chatConfig, false);
+    if (!enableRAG || !embeddingConfig) {
+        return chatProvider;
+    }
+
+    const embeddingProvider = getAiProvider(embeddingConfig, false);
+    return new RAGProvider(chatProvider, embeddingProvider);
+
+  }, [chatConfig, embeddingConfig, enableRAG]);
 
   const [gemfileContent, setGemfileContent] = useState<string>('');
   const [gemfileName, setGemfileName] = useState<string | null>(null);
@@ -49,8 +60,9 @@ const App = () => {
   const gemfileInputRef = useRef<HTMLInputElement>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleConfigured = (config: IAiProviderConfig) => {
-    setAiConfig(config);
+  const handleConfigured = (cConfig: IAiProviderConfig, eConfig: IAiProviderConfig) => {
+    setChatConfig(cConfig);
+    setEmbeddingConfig(eConfig);
     setView('app');
   };
 
@@ -86,15 +98,7 @@ const App = () => {
           setGemfileContent(text);
           setGemfileName(file.name);
         } else {
-          // Project file processing
-          const parsedJson = JSON.parse(text);
-          if (!parsedJson.files || !Array.isArray(parsedJson.files)) {
-            throw new Error("Invalid JSON structure. The root object must have a 'files' array.");
-          }
-          const allFilesContent = parsedJson.files
-            .map((fileObj: any) => fileObj.content || '')
-            .join('\n\n'); // Add extra newline for better separation
-          setProjectFilesContent(allFilesContent);
+          setProjectFilesContent(text); // Store the raw JSON string
           setUploadedFileName(file.name);
         }
       } catch (err: unknown) {
@@ -195,7 +199,6 @@ const App = () => {
     let historyForProvider = [...chatHistory];
     
     if (options.isRegenerating) {
-        // Find the last user message to remove it and the AI's response to it.
         const lastUserMessageIndex = historyForProvider.map(m => m.role).lastIndexOf('user');
         if (lastUserMessageIndex !== -1) {
             historyForProvider = historyForProvider.slice(0, lastUserMessageIndex);
@@ -208,7 +211,6 @@ const App = () => {
     setIsChatLoading(true);
 
     try {
-      // Pass the history *before* the new user message to the provider for context
       const response = await chatSession.sendMessage(message, historyForProvider, options.signal);
       const modelMessage: ChatMessage = { role: 'model', text: response.text };
       setChatHistory(prev => [...prev, modelMessage]);
@@ -256,6 +258,13 @@ const App = () => {
       setSelectedDocSection(null);
   };
 
+  const handleClearRAG = () => {
+    if (aiProvider && aiProvider instanceof RAGProvider) {
+      aiProvider.clearRAG();
+      // Force a re-render to update stats
+      setChatHistory(prev => [...prev]);
+    }
+  };
 
   if (view === 'landing') {
     return <LandingPage onEnterApp={() => setView('setup')} />;
@@ -264,6 +273,10 @@ const App = () => {
   if (view === 'setup') {
     return <SetupPage onConfigured={handleConfigured} />;
   }
+
+  const ragStats = aiProvider instanceof RAGProvider && aiProvider.isRAGReady() 
+    ? aiProvider.getRAGStats() 
+    : null;
 
   return (
     <>
@@ -277,8 +290,8 @@ const App = () => {
               Upload your codebase to generate your knowledge base.
             </p>
              <div className="absolute top-0 right-0 text-right">
-                <p className="text-sm font-semibold text-slate-300">{aiConfig?.providerName}</p>
-                <p className="text-xs text-slate-500">{aiConfig?.model}</p>
+                <p className="text-sm font-semibold text-slate-300">{chatConfig?.providerName}</p>
+                <p className="text-xs text-slate-500">{chatConfig?.model}</p>
             </div>
           </header>
 
@@ -353,7 +366,17 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-end gap-4">
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="rag-toggle" className="font-semibold text-slate-300">Enable RAG</label>
+                    <input 
+                        id="rag-toggle"
+                        type="checkbox" 
+                        checked={enableRAG} 
+                        onChange={(e) => setEnableRAG(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
+                    />
+                </div>
                 <button
                   onClick={handleGenerateClick}
                   disabled={!gemfileContent || !projectFilesContent || isLoading}
@@ -384,13 +407,32 @@ const App = () => {
             {isLoading && docSections.length === 0 && (
               <div className="flex justify-center items-center flex-col gap-4 bg-slate-800/50 rounded-lg p-12 border border-slate-700 shadow-lg">
                   <LoaderIcon />
-                  <p className="text-lg text-slate-300 animate-pulse">Analyzing your project with {aiConfig?.providerName}... this may take a moment.</p>
+                  <p className="text-lg text-slate-300 animate-pulse">Analyzing your project with {chatConfig?.providerName}... this may take a moment.</p>
               </div>
             )}
 
             {docSections.length > 0 && !isLoading && (
               <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                  <DocumentationSidebar sections={docSections} onSectionClick={handleDocSectionClick} />
+                  <div className="w-full lg:w-1/4">
+                    <DocumentationSidebar sections={docSections} onSectionClick={handleDocSectionClick} />
+                    {ragStats && (
+                        <div className="mt-4 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                            <h3 className="font-semibold text-lg text-indigo-300 mb-2">RAG Status</h3>
+                            <p className="text-sm text-slate-400">
+                                <span className="font-bold">{ragStats.totalChunks}</span> chunks indexed
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                ({ragStats.docChunks} from docs, {ragStats.codeChunks} from code)
+                            </p>
+                            <button 
+                                onClick={handleClearRAG}
+                                className="mt-3 w-full text-center px-3 py-1.5 text-xs font-semibold bg-red-800/50 hover:bg-red-700/50 rounded-md transition-colors"
+                            >
+                                Clear RAG Data
+                            </button>
+                        </div>
+                    )}
+                  </div>
                   <div className="flex-1">
                       <ChatInterface
                           history={chatHistory}

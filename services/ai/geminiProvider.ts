@@ -2,7 +2,7 @@ import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { IAiProvider, IChatSession, DocumentationResponse, ChatResponse, IAiProviderConfig, ValidationResult } from './provider';
 import { ChatMessage } from '../../components/ChatInterface';
 import { withRetry } from './utils';
-import { providers } from "../../config";
+import { chatProviders } from "../../config";
 
 const RUBY_TECHNICAL_ANALYSIS_PROMPT = `
 **Ruby Technical Analysis System Prompt (Enhanced Format)**
@@ -143,7 +143,7 @@ export class GeminiProvider implements IAiProvider {
             
             // To be more certain, a tiny API call would be needed, but for UX, this is often sufficient.
             // We return the hardcoded list of models for this provider upon successful "validation".
-            const geminiModels = providers.find(p => p.key === 'gemini')?.models || [];
+            const geminiModels = chatProviders.find(p => p.key === 'gemini')?.models || [];
 
             return { success: true, models: geminiModels };
         } catch (error: any) {
@@ -220,6 +220,14 @@ export class GeminiProvider implements IAiProvider {
             console.error("Failed to parse JSON response for backlog:", e);
             throw new Error("The AI returned an invalid JSON format for the backlog.");
         }
+    }
+
+    async generateEmbedding(text: string): Promise<number[]> {
+        const response = await withRetry(() => this.ai.embed.create({
+            model: "embedding-001", // Or another suitable model
+            text,
+        }));
+        return response.embedding;
     }
 
     private getDocsPrompt(gemfileContent: string, projectContext: string, separator: string): string {

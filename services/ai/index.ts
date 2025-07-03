@@ -2,21 +2,37 @@
 import { IAiProvider, IAiProviderConfig, ValidationResult } from './provider';
 import { GeminiProvider } from './geminiProvider';
 import { OpenRouterProvider } from './openRouterProvider';
+import { TransformersJsProvider } from './transformersJsProvider';
+import { RAGProvider } from '../rag/ragProvider';
 
 /**
  * Factory function to get an instance of an AI provider.
  * @param config The user-defined configuration for the provider.
- * @returns An instance of the requested AI provider.
+ * @param enableRAG A boolean to enable or disable the RAG provider.
+ * @returns An instance of the requested AI provider, optionally wrapped in a RAG provider.
  */
-export const getAiProvider = (config: IAiProviderConfig): IAiProvider => {
+export const getAiProvider = (config: IAiProviderConfig, enableRAG: boolean = true): IAiProvider => {
+    let baseProvider: IAiProvider;
+
     switch (config.provider) {
         case 'gemini':
-            return new GeminiProvider(config);
+            baseProvider = new GeminiProvider(config);
+            break;
         case 'openrouter':
-            return new OpenRouterProvider(config);
+            baseProvider = new OpenRouterProvider(config);
+            break;
+        case 'transformers.js':
+            baseProvider = new TransformersJsProvider(config);
+            break;
         default:
             throw new Error(`Unsupported AI provider: ${config.provider}`);
     }
+
+    if (enableRAG) {
+        return new RAGProvider(baseProvider);
+    }
+    
+    return baseProvider;
 };
 
 /**
@@ -31,6 +47,8 @@ export const validateApiKey = async (provider: string, apiKey: string): Promise<
             return GeminiProvider.validate(apiKey);
         case 'openrouter':
             return OpenRouterProvider.validate(apiKey);
+        case 'transformers.js':
+            return TransformersJsProvider.validate(apiKey);
         default:
             return { success: false, error: 'Unknown provider selected for validation.' };
     }

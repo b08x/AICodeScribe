@@ -207,6 +207,28 @@ export class OpenRouterProvider implements IAiProvider {
         }
     }
     
+    async generateEmbedding(text: string): Promise<number[]> {
+        const response = await withRetry(() => fetch("https://openrouter.ai/api/v1/embeddings", {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'text-embedding-ada-002', // Or another suitable model
+                input: text,
+            }),
+        }));
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenRouter Embeddings API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.data[0].embedding;
+    }
+    
     private getDocsPrompt(gemfileContent: string, projectContext: string, separator: string): string {
          return `
 You are an expert Senior Ruby on Rails developer and a professional technical writer. Your task is to create a knowledge base from a given Gemfile and a set of project files.

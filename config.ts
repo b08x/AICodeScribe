@@ -6,12 +6,12 @@ export interface ProviderDetails {
     defaultTemperature: number;
 }
 
-export const providers: ProviderDetails[] = [
+export const chatProviders: ProviderDetails[] = [
     { 
         key: 'gemini', 
         name: 'Google Gemini',
         models: [
-            "gemini-2.5-flash-preview-04-17",
+            "gemini-1.5-flash-latest",
             "gemini-pro",
         ],
         defaultTemperature: 0.7,
@@ -26,5 +26,30 @@ export const providers: ProviderDetails[] = [
             "google/gemini-pro"
         ],
         defaultTemperature: 0.8,
+    }
+];
+
+export const embeddingProviders: ProviderDetails[] = [
+    {
+        key: 'transformers.js',
+        name: 'Local Embeddings (Transformers.js)',
+        models: [
+            'Xenova/all-MiniLM-L6-v2',
+            'Xenova/bge-base-en-v1.5',
+            'mixedbread-ai/mxbai-embed-large-v1'
+        ],
+        defaultTemperature: 0.0,
+    },
+    { 
+        key: 'gemini', 
+        name: 'Google Gemini',
+        models: ["embedding-001"],
+        defaultTemperature: 0.0,
+    },
+    { 
+        key: 'openrouter', 
+        name: 'OpenRouter',
+        models: ["text-embedding-ada-002"],
+        defaultTemperature: 0.0,
     }
 ];
