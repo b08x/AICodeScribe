@@ -11,7 +11,7 @@ export const chatProviders: ProviderDetails[] = [
         key: 'gemini', 
         name: 'Google Gemini',
         models: [
-            "gemini-1.5-flash-latest",
+            "gemini-2.0-flash",
             "gemini-pro",
         ],
         defaultTemperature: 0.7,
