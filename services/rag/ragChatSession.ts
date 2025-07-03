@@ -2,12 +2,13 @@
 import { IChatSession, ChatResponse } from '../ai/provider';
 import { ChatMessage } from '../../components/ChatInterface';
 import { RAGService, RAGContext } from './ragService';
+import { EnhancedRAGService } from './enhancedRagService';
 
 export class RAGChatSession implements IChatSession {
   private baseChatSession: IChatSession;
-  private ragService: RAGService;
+  private ragService: RAGService | EnhancedRAGService;
   
-  constructor(baseChatSession: IChatSession, ragService: RAGService) {
+  constructor(baseChatSession: IChatSession, ragService: RAGService | EnhancedRAGService) {
     this.baseChatSession = baseChatSession;
     this.ragService = ragService;
   }

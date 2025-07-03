@@ -4,14 +4,20 @@ import { GeminiProvider } from './geminiProvider';
 import { OpenRouterProvider } from './openRouterProvider';
 import { TransformersJsProvider } from './transformersJsProvider';
 import { RAGProvider } from '../rag/ragProvider';
+import { EnhancedRAGConfig } from '../rag/enhancedRagService';
 
 /**
  * Factory function to get an instance of an AI provider.
  * @param config The user-defined configuration for the provider.
  * @param enableRAG A boolean to enable or disable the RAG provider.
+ * @param ragConfig Configuration for the RAG service, including persistent storage settings.
  * @returns An instance of the requested AI provider, optionally wrapped in a RAG provider.
  */
-export const getAiProvider = (config: IAiProviderConfig, enableRAG: boolean = true): IAiProvider => {
+export const getAiProvider = (
+    config: IAiProviderConfig, 
+    enableRAG: boolean = true, 
+    ragConfig: EnhancedRAGConfig = { usePersistentStorage: false }
+): IAiProvider => {
     let baseProvider: IAiProvider;
 
     switch (config.provider) {
@@ -29,7 +35,7 @@ export const getAiProvider = (config: IAiProviderConfig, enableRAG: boolean = tr
     }
 
     if (enableRAG) {
-        return new RAGProvider(baseProvider);
+        return new RAGProvider(baseProvider, baseProvider, ragConfig);
     }
     
     return baseProvider;
