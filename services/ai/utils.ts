@@ -23,12 +23,24 @@ export const isRateLimitError = (error: any): boolean => {
     return false;
 };
 
+export const isAbortError = (error: any): boolean => {
+    // DOMException is thrown by fetch on abort, its name is 'AbortError'
+    // The Gemini SDK might also throw an error with this name.
+    return error?.name === 'AbortError';
+};
+
+
 export const withRetry = async <T>(apiCall: () => Promise<T>): Promise<T> => {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
             return await apiCall();
         } catch (error) {
             console.error(`Attempt ${attempt} of ${MAX_ATTEMPTS} failed.`, error);
+
+            if (isAbortError(error)) {
+                console.log("API call was aborted by the user.");
+                throw error; // Re-throw immediately, do not retry
+            }
 
             if (isRateLimitError(error)) {
                 if (attempt < MAX_ATTEMPTS) {

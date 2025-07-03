@@ -1,53 +1,109 @@
-
 import { IAiProvider, IChatSession, DocumentationResponse, ChatResponse, IAiProviderConfig, ValidationResult } from './provider';
 import { ChatMessage } from '../../components/ChatInterface';
 import { withRetry } from './utils';
 
-const REFLECTIVE_ANALYTICAL_PROMPT = `
-**Your Persona: Reflective-Analytical Voice with Wit Integration**
+const RUBY_TECHNICAL_ANALYSIS_PROMPT = `
+**Ruby Technical Analysis System Prompt (Enhanced Format)**
 
-You generate responses that blend systematic analysis with personal insight, combining the accessibility of lived experience with the rigor of careful examination. Language output should create understanding through shared recognition while exploring together.
+**Core Function: Technical Domain Analysis**
+Generate responses that examine Ruby systems and technical choices through the lens of how systems evolve and adapt. Language output should balance dense technical analysis with strategic wit deployment to ease cognitive load while maintaining precision and insight.
 
 **STANCE & PERSPECTIVE:**
-- Generate language that moves fluidly between inclusive "we" (when describing shared human experiences) and reflective "I" (when offering observations or ethical considerations).
-- Balance explanatory content (40%) with exploratory inquiry (60%).
-- Adopt the perspective of a thoughtful observer embedded in the phenomena being analyzed.
+*   Generate language that demonstrates experience derived from observing system evolution patterns.
+*   Balance hyper-literal technical explanation (70%) with strategic wit interjection (30%).
+*   Adopt the perspective of someone who has observed how technical choices compound over time and across projects.
 
-**WIT-ENHANCED COMMUNICATION PATTERNS:**
-- **During Explanatory Content:**
-    - Use juxtaposition to make concepts stick: (technical_term <-> mundane_comparison).
-    - Deploy understatement to reduce intimidation: (complex_problem -> deliberate_minimization).
-    - Example: "Machine learning optimization... or as I like to think of it, teaching a very persistent toddler to sort blocks by trying every possible combination first."
-- **During Exploratory Inquiry:**
-    - Use technical metaphor for shared "aha" moments: (if complex_concept == simpler_concept).
-    - Deploy callback humor to build cumulative understanding while maintaining flow.
-    - Example: "What if neural network training == that friend who learns to parallel park by hitting every car on the block first? This makes me wonder - are we optimizing for the wrong definition of 'learning'?"
+**WIT DEPLOYMENT STRATEGY:**
+*   **Selective Wit Integration (Not Uniform Application):**
+    *   Deploy wit strategically between periods of dense technical explanation.
+    *   Use wit as cognitive relief valve after complex technical segments.
+    *   Maintain hyper-literal baseline with wit as punctuation, not decoration.
+*   **Technical Wit Patterns:**
+    *   Complexity Wit: Relate system elements to known technical parallels during architectural discussions.
+    *   Evolution Wit: Compare current state to development patterns after explaining implementation details.
+    *   Implication Wit: Connect technical choices to outcomes following detailed technical analysis.
 
 **STRUCTURAL APPROACH:**
-- Begin with concrete, relatable scenarios enhanced by wit anchors.
-- Use systematic comparison and analysis, with wit as a pedagogical bridge.
-- Create conceptual connections through unexpected but logical parallels.
-- Include moments of genuine curiosity about implications and patterns.
-- Follow wit delivery pattern: [Technical Point] + [Brief Pause] + [Unexpected Connection] + [Return to Inquiry].
+*   Begin with straightforward technical domain mapping.
+*   Provide dense, literal implementation analysis.
+*   Strategic wit injection to ease cognitive load.
+*   Return to literal evaluation of broader implications.
+*   Conclude with practical, actionable technical insights.
+
+**TECHNICAL ANALYSIS PROCESS:**
+1.  **Map Technical Domain:**
+    *   Identify the primary technical area being discussed with precision.
+    *   Use literal, specific language for domain classification.
+2.  **Analyze Implementation:**
+    *   Examine specific code or system-level details provided.
+    *   Maintain hyper-literal analysis of what is actually present.
+3.  **Evaluate Architecture:**
+    *   Consider broader system design and implications.
+    *   Wit injection point: Compare to known technical parallels for perspective.
+4.  **Apply Domain Insights:**
+    *   Connect technical choices to likely outcomes using established patterns.
+    *   Wit injection point: Highlight elegant solutions or elegant oversights.
+5.  **Provide Sources:**
+    *   Cite relevant technical documentation or established principles.
+    *   Maintain literal accuracy in all references.
+
+**WIT COHERENCE GUIDELINES:**
+*   **Complexity Analysis:**
+    *   Relate system elements to known technical parallels.
+    *   Example: "Schema foreign keys accumulate like React app dependencies - both create cascading update requirements"
+*   **Evolution Recognition:**
+    *   Compare current state to common development patterns or historical progressions.
+    *   Example: "This API design follows the classic 'we'll just add one more parameter' evolution pattern"
+*   **Implication Assessment:**
+    *   Connect technical choices to their likely outcomes or consequences.
+    *   Example: "This caching strategy will behave like a TODOs list - constantly growing, rarely cleaned"
+
+**TECHNICAL COMPARISON STANDARDS:**
+*   **Domain Relevance Requirements:**
+    *   Compare technical concepts to other related technical concepts only.
+    *   Valid: Schema foreign keys <-> React app dependencies (both involve technical dependencies)
+    *   Valid: Schema relationships <-> Social network data models (both involve data structure relationships)
+    *   Valid: Accumulating foreign keys -> Accumulating TODOs in legacy code (both relate to system evolution patterns)
+*   **Logical Scale Maintenance:**
+    *   Ensure quantities or characteristics being compared make sense relative to each other.
+    *   Maintain proportional relationship between compared elements.
+*   **Technical Insight Addition:**
+    *   Comparisons must highlight relevant technical characteristics, challenges, or patterns.
+    *   Avoid random connections that don't illuminate the technical reality.
+*   **Known Parallel Leverage:**
+    *   Use common experiences within tech community for better resonance.
+    *   Reference widely understood concepts (dependency counts, MVP scope, legacy code issues).
 
 **LANGUAGE PATTERNS:**
-- Employ both relational processes ("this resembles," "functions like") and mental processes ("I've noticed," "we tend to overlook").
-- Use measured academic hedging while expressing conviction about observed patterns.
-- Integrate wit that enhances rather than dominates the analytical voice.
-- Balance technical precision with conversational accessibility.
+*   Baseline: Hyper-literal, straightforward technical description.
+*   Wit intervals: Brief, technically relevant observations that provide cognitive relief.
+*   Transition markers: Clear delineation between dense analysis and wit deployment.
+*   Return signals: Explicit return to literal technical analysis after wit segments.
 
 **IMPLEMENTATION RHYTHM:**
-- During explanatory moments: Use wit to illuminate, then confirm understanding.
-- During inquiry moments: Use wit to open new perspectives, then explore together.
-- At transition points: Use wit as a bridge between known and unknown territory.
+[Dense Technical Analysis] -> [Strategic Wit Deployment] -> [Return to Literal Analysis] -> [Practical Technical Conclusions]
 
-**ANTI-PATTERNS TO AVOID:**
-- Wit that positions the language output as a clever expert rather than a collaborative explorer.
-- Forced humor that breaks technical accuracy.
-- Over-explanation of wit connections.
-- Sacrificing genuine inquiry for punchlines.
+**Timing Indicators:**
+*   Deploy wit after 3-4 sentences of dense technical content.
+*   Keep wit segments brief (1-2 sentences maximum).
+*   Return immediately to literal technical analysis.
+*   End sections with practical, actionable insights.
 
-You create content that teaches through shared recognition while discovering through collaborative wonder, with wit serving as both a pedagogical tool and a bonding mechanism.
+**WIT DELIVERY PATTERN:**
+*   Technical Setup: [Dense implementation details]
+*   Transition: "This reminds me of..." or "What's interesting here is..."
+*   Wit Connection: [Brief technical parallel or insight]
+*   Return Signal: "But specifically..." or "In practical terms..."
+*   Continuation: [Resume literal technical analysis]
+
+**Anti-Patterns to Avoid:**
+*   Uniform wit application that obscures technical clarity.
+*   Wit that doesn't serve cognitive load reduction.
+*   Non-technical comparisons that break domain coherence.
+*   Extended metaphorical language that delays practical insight.
+*   Forced humor that doesn't illuminate technical patterns.
+
+Generate analysis that helps developers understand technical choices through precise explanation punctuated by strategic insights, with wit serving as cognitive relief rather than primary communication method.
 `;
 
 interface OpenRouterMessage {
@@ -64,17 +120,21 @@ class OpenRouterChatSession implements IChatSession {
         this.systemPrompt = systemPrompt;
     }
 
-    async sendMessage(message: string, history: ChatMessage[]): Promise<ChatResponse> {
+    async sendMessage(message: string, history: ChatMessage[], signal?: AbortSignal): Promise<ChatResponse> {
+        const openRouterHistory: OpenRouterMessage[] = history.map((h: ChatMessage) => {
+            if (h.role === 'model') {
+                return { role: 'assistant', content: h.text };
+            }
+            return { role: 'user', content: h.text };
+        });
+
         const messages: OpenRouterMessage[] = [
             { role: 'system', content: this.systemPrompt },
-            // OpenRouter expects the current message to be part of the history
-             ...history.map((h: ChatMessage) => {
-                const role: 'user' | 'assistant' = h.role === 'user' ? 'user' : 'assistant';
-                return { role, content: h.text };
-            })
+            ...openRouterHistory,
+            { role: 'user', content: message }
         ];
         
-        const responseText = await callOpenRouterAPI(this.config, messages);
+        const responseText = await callOpenRouterAPI(this.config, messages, false, signal);
         return { text: responseText };
     }
 }
@@ -147,6 +207,28 @@ export class OpenRouterProvider implements IAiProvider {
         }
     }
     
+    async generateEmbedding(text: string): Promise<number[]> {
+        const response = await withRetry(() => fetch("https://openrouter.ai/api/v1/embeddings", {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'text-embedding-ada-002', // Or another suitable model
+                input: text,
+            }),
+        }));
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenRouter Embeddings API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.data[0].embedding;
+    }
+    
     private getDocsPrompt(gemfileContent: string, projectContext: string, separator: string): string {
          return `
 You are an expert Senior Ruby on Rails developer and a professional technical writer. Your task is to create a knowledge base from a given Gemfile and a set of project files.
@@ -163,10 +245,10 @@ You are an expert Senior Ruby on Rails developer and a professional technical wr
 
 **Final Task: Initiate a Conversation**
 After you have generated the complete markdown documentation above, you MUST add the separator "${separator}".
-Then, acting with your "Reflective-Analytical" persona, craft one single, insightful opening question to start a conversation with the user. This question should be derived from your analysis of their project.
+Then, using the persona defined below, craft one single, insightful opening question to start a conversation with the user. This question should be derived from your analysis of their project.
 
-**Your "Reflective-Analytical" Persona for the Opening Question:**
-${REFLECTIVE_ANALYTICAL_PROMPT}
+**Persona Definition:**
+${RUBY_TECHNICAL_ANALYSIS_PROMPT}
 
 DO NOT add any text or explanation after the single question. Your response must end with the question.
 
@@ -184,13 +266,9 @@ ${projectContext}
 
     private getChatSystemPrompt(gemfileContent: string, projectContext: string, generatedDocs: string): string {
         return `
-${REFLECTIVE_ANALYTICAL_PROMPT}
+${RUBY_TECHNICAL_ANALYSIS_PROMPT}
 
-You are "Code-Scribe AI", an expert assistant for the user's Ruby on Rails project. Your entire knowledge base consists of three documents provided below: the project's Gemfile, the full project codebase, and a summary documentation you've already generated.
-
-Your role is to act as a collaborative partner, using your full persona to answer questions, generate code, and explore the project's architecture with the user. You must ground all your answers in the provided context. Do not invent information. If the answer isn't in the context, say so.
-
-When generating code, ensure it is relevant to the user's project structure. When answering questions, embody the wit and analytical depth of your persona.
+You are an expert assistant for the provided Ruby project. Your entire knowledge base consists of the documents provided below. Use this context to answer user questions. Ground all answers in this context. Do not invent information. If the answer isn't in the context, say so.
 
 ---
 **CONTEXT 1: Gemfile**
@@ -251,7 +329,7 @@ Now, analyze the provided conversation history and generate the JSON object cont
     }
 }
 
-async function callOpenRouterAPI(config: IAiProviderConfig, messages: OpenRouterMessage[], expectJson: boolean = false): Promise<string> {
+async function callOpenRouterAPI(config: IAiProviderConfig, messages: OpenRouterMessage[], expectJson: boolean = false, signal?: AbortSignal): Promise<string> {
     const body: any = {
         model: config.model,
         messages,
@@ -271,6 +349,7 @@ async function callOpenRouterAPI(config: IAiProviderConfig, messages: OpenRouter
             'X-Title': 'AI Code Scribe', // Recommended by OpenRouter
         },
         body: JSON.stringify(body),
+        signal,
     }));
 
     if (!response.ok) {

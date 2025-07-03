@@ -25,11 +25,12 @@ export interface ChatResponse {
 }
 
 export interface IChatSession {
-    sendMessage(message: string, history: ChatMessage[]): Promise<ChatResponse>;
+    sendMessage(message: string, history: ChatMessage[], signal?: AbortSignal): Promise<ChatResponse>;
 }
 
 export interface IAiProvider {
     generateDocumentation(gemfileContent: string, projectContext: string): Promise<DocumentationResponse>;
     createChatSession(gemfileContent: string, projectContext: string, generatedDocs: string): Promise<IChatSession>;
     generateBacklog(chatHistory: ChatMessage[]): Promise<string>;
+    generateEmbedding(text: string): Promise<number[]>;
 }
