@@ -12,7 +12,7 @@ import { LandingPage } from './components/LandingPage';
 import { ChatInterface, ChatMessage } from './components/ChatInterface';
 import { BacklogDisplayModal } from './components/BacklogDisplayModal';
 import { SetupPage } from './components/SetupPage';
-import { DocumentationSidebar, DocSection } from './components/DocumentationSidebar';
+import { DocumentationSidebar, DocSection, GemInfo } from './components/DocumentationSidebar';
 import { DocumentationDetailModal } from './components/DocumentationDetailModal';
 
 
@@ -41,6 +41,8 @@ const App = () => {
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  // Gems state
+  const [gems, setGems] = useState<GemInfo[]>([]);
   
   // Documentation state
   const [docSections, setDocSections] = useState<DocSection[]>([]);
@@ -72,6 +74,7 @@ const App = () => {
       if (type === 'gemfile') {
         setGemfileContent('');
         setGemfileName(null);
+        setGems([]);
       } else {
         setProjectFilesContent('');
         setUploadedFileName(null);
@@ -97,6 +100,7 @@ const App = () => {
         if (type === 'gemfile') {
           setGemfileContent(text);
           setGemfileName(file.name);
+          setGems(parseGemfile(text));
         } else {
           setProjectFilesContent(text); // Store the raw JSON string
           setUploadedFileName(file.name);
@@ -107,6 +111,7 @@ const App = () => {
         if (type === 'gemfile') {
           setGemfileName(null);
           setGemfileContent('');
+          setGems([]);
           if(gemfileInputRef.current) gemfileInputRef.current.value = '';
         } else {
           setUploadedFileName(null);
@@ -120,6 +125,7 @@ const App = () => {
       if (type === 'gemfile') {
         setGemfileName(null);
         setGemfileContent('');
+        setGems([]);
         if(gemfileInputRef.current) gemfileInputRef.current.value = '';
       } else {
         setUploadedFileName(null);
@@ -129,6 +135,20 @@ const App = () => {
     };
     reader.readAsText(file);
   };
+  
+// Gemfile parser: extracts gem names and versions from Gemfile content
+function parseGemfile(content: string): GemInfo[] {
+  const lines = content.split(/\r?\n/);
+  const gems: GemInfo[] = [];
+  const gemRegex = /^\s*gem\s+['\"]([^'\"]+)['\"](?:\s*,\s*['\"]([^'\"]+)['\"])?/;
+  for (const line of lines) {
+    const match = line.match(gemRegex);
+    if (match) {
+      gems.push({ name: match[1], version: match[2] });
+    }
+  }
+  return gems;
+}
   
   const parseDocsToSections = (markdown: string): DocSection[] => {
     if (!markdown) return [];
@@ -414,7 +434,7 @@ const App = () => {
             {docSections.length > 0 && !isLoading && (
               <div className="mt-6 flex flex-col lg:flex-row gap-6">
                   <div className="w-full lg:w-1/4">
-                    <DocumentationSidebar sections={docSections} onSectionClick={handleDocSectionClick} />
+                    <DocumentationSidebar sections={docSections} gems={gems} onSectionClick={handleDocSectionClick} />
                     {ragStats && (
                         <div className="mt-4 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
                             <h3 className="font-semibold text-lg text-indigo-300 mb-2">RAG Status</h3>

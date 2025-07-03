@@ -5,16 +5,34 @@ export interface DocSection {
   markdown: string;
 }
 
+export interface GemInfo {
+  name: string;
+  version?: string;
+}
+
 interface DocumentationSidebarProps {
   sections: DocSection[];
+  gems: GemInfo[];
   onSectionClick: (section: DocSection) => void;
 }
 
-export const DocumentationSidebar: React.FC<DocumentationSidebarProps> = ({ sections, onSectionClick }) => {
+export const DocumentationSidebar: React.FC<DocumentationSidebarProps> = ({ sections, gems, onSectionClick }) => {
   return (
     <aside className="w-full lg:w-72 flex-shrink-0 bg-slate-800/50 rounded-lg p-6 border border-slate-700 shadow-lg self-start" style={{height: '70vh'}}>
       <h2 className="text-2xl font-semibold mb-4 text-cyan-400">Knowledge Base</h2>
-      <nav className="h-[calc(70vh-80px)] overflow-y-auto pr-2">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-indigo-300 mb-2">Gems</h3>
+        <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
+          {gems.length === 0 && <li className="text-slate-500 text-sm">No gems found</li>}
+          {gems.map(gem => (
+            <li key={gem.name} className="text-slate-200 text-sm flex items-center gap-2">
+              <span className="font-mono text-cyan-300">{gem.name}</span>
+              {gem.version && <span className="text-slate-400">{gem.version}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <nav className="h-[calc(70vh-180px)] overflow-y-auto pr-2">
         <ul className="space-y-2">
           {sections.map((section) => (
             <li key={section.title}>
