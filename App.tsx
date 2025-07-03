@@ -1,23 +1,19 @@
-
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getAiProvider } from './services/ai';
 import { IAiProvider, IAiProviderConfig, IChatSession } from './services/ai/provider';
 import { RAGProvider } from './services/rag';
 
-import { LoaderIcon } from './components/icons/LoaderIcon';
-import { SparklesIcon } from './components/icons/SparklesIcon';
-import { UploadIcon } from './components/icons/UploadIcon';
-import { FileIcon } from './components/icons/FileIcon';
 import { LandingPage } from './components/LandingPage';
-import { ChatInterface, ChatMessage } from './components/ChatInterface';
-import { BacklogDisplayModal } from './components/BacklogDisplayModal';
+import { ChatMessage } from './components/ChatInterface';
 import { SetupPage } from './components/SetupPage';
-import { DocumentationSidebar, DocSection, GemInfo } from './components/DocumentationSidebar';
-import { DocumentationDetailModal } from './components/DocumentationDetailModal';
+import { UploadPage } from './components/UploadPage';
+import { StatusPage } from './components/StatusPage';
+import { MainChatPage } from './components/MainChatPage';
+import { DocSection, GemInfo } from './components/DocumentationSidebar';
 
 
 const App = () => {
-  const [view, setView] = useState<'landing' | 'setup' | 'app'>('landing');
+  const [view, setView] = useState<'landing' | 'setup' | 'upload' | 'status' | 'chat'>('landing');
   const [chatConfig, setChatConfig] = useState<IAiProviderConfig | null>(null);
   const [embeddingConfig, setEmbeddingConfig] = useState<IAiProviderConfig | null>(null);
   const [enableRAG, setEnableRAG] = useState<boolean>(true);
@@ -43,11 +39,10 @@ const App = () => {
   const [error, setError] = useState<string>('');
   // Gems state
   const [gems, setGems] = useState<GemInfo[]>([]);
+  const [selectedGems, setSelectedGems] = useState<Set<string>>(new Set());
   
   // Documentation state
   const [docSections, setDocSections] = useState<DocSection[]>([]);
-  const [isDocModalOpen, setIsDocModalOpen] = useState<boolean>(false);
-  const [selectedDocSection, setSelectedDocSection] = useState<DocSection | null>(null);
 
   // Chat state
   const [chatSession, setChatSession] = useState<IChatSession | null>(null);
@@ -59,13 +54,20 @@ const App = () => {
   const [isBacklogVisible, setIsBacklogVisible] = useState<boolean>(false);
   const [backlogJson, setBacklogJson] = useState<string | null>(null);
 
+  // Status page state
+  const [progress, setProgress] = useState({
+    step: 'parsing',
+    description: 'Analyzing uploaded files...',
+    percentage: 0,
+  });
+
   const gemfileInputRef = useRef<HTMLInputElement>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleConfigured = (cConfig: IAiProviderConfig, eConfig: IAiProviderConfig) => {
     setChatConfig(cConfig);
     setEmbeddingConfig(eConfig);
-    setView('app');
+    setView('upload');
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'gemfile' | 'project') => {
@@ -100,7 +102,9 @@ const App = () => {
         if (type === 'gemfile') {
           setGemfileContent(text);
           setGemfileName(file.name);
-          setGems(parseGemfile(text));
+          const parsed = parseGemfile(text);
+          setGems(parsed);
+          setSelectedGems(new Set(parsed.map(g => g.name)));
         } else {
           setProjectFilesContent(text); // Store the raw JSON string
           setUploadedFileName(file.name);
@@ -112,6 +116,7 @@ const App = () => {
           setGemfileName(null);
           setGemfileContent('');
           setGems([]);
+          setSelectedGems(new Set());
           if(gemfileInputRef.current) gemfileInputRef.current.value = '';
         } else {
           setUploadedFileName(null);
@@ -126,6 +131,7 @@ const App = () => {
         setGemfileName(null);
         setGemfileContent('');
         setGems([]);
+        setSelectedGems(new Set());
         if(gemfileInputRef.current) gemfileInputRef.current.value = '';
       } else {
         setUploadedFileName(null);
@@ -181,19 +187,75 @@ function parseGemfile(content: string): GemInfo[] {
   const handleGenerateClick = useCallback(async () => {
     if (!gemfileContent || !projectFilesContent || isLoading || !aiProvider) return;
 
+    // Filter Gemfile content to only include selected gems
+    const filteredGemfile = gemfileContent
+      .split(/\r?\n/)
+      .filter(line => {
+        const match = line.match(/^\s*gem\s+['\"]([^'\"]+)['\"]/)?.[1];
+        return !match || selectedGems.has(match);
+      })
+      .join('\n');
+
     setIsLoading(true);
     setError('');
     setDocSections([]);
     setChatSession(null);
     setChatHistory([]);
+    setView('status');
+
+    // Reset progress
+    setProgress({
+      step: 'parsing',
+      description: 'Analyzing uploaded files...',
+      percentage: 0,
+    });
 
     try {
-      const { docs, initialQuestion } = await aiProvider.generateDocumentation(gemfileContent, projectFilesContent);
+      // Step 1: Parsing
+      setProgress({
+        step: 'parsing',
+        description: 'Analyzing uploaded files...',
+        percentage: 20,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing time
+
+      // Step 2: Processing
+      setProgress({
+        step: 'processing',
+        description: 'Extracting code structure and patterns...',
+        percentage: 40,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 3: Embedding
+      setProgress({
+        step: 'embedding',
+        description: 'Generating vector embeddings for RAG...',
+        percentage: 60,
+      });
+
+      const { docs, initialQuestion } = await aiProvider.generateDocumentation(filteredGemfile, projectFilesContent);
       const sections = parseDocsToSections(docs);
       setDocSections(sections);
-      
-      const chat = await aiProvider.createChatSession(gemfileContent, projectFilesContent, docs);
+
+      // Step 4: Indexing
+      setProgress({
+        step: 'indexing',
+        description: 'Creating searchable knowledge base...',
+        percentage: 80,
+      });
+
+      const chat = await aiProvider.createChatSession(filteredGemfile, projectFilesContent, docs);
       setChatSession(chat);
+
+      // Step 5: Finalizing
+      setProgress({
+        step: 'finalizing',
+        description: 'Preparing chat interface...',
+        percentage: 100,
+      });
 
       if (initialQuestion) {
         setChatHistory([{ role: 'model', text: initialQuestion }]);
@@ -208,7 +270,7 @@ function parseGemfile(content: string): GemInfo[] {
     } finally {
       setIsLoading(false);
     }
-  }, [gemfileContent, projectFilesContent, isLoading, aiProvider]);
+  }, [gemfileContent, projectFilesContent, isLoading, aiProvider, selectedGems]);
 
   const handleSendMessage = useCallback(async (
     message: string, 
@@ -268,14 +330,12 @@ function parseGemfile(content: string): GemInfo[] {
     }
   }, [chatHistory, isBacklogLoading, aiProvider]);
 
-  const handleDocSectionClick = (section: DocSection) => {
-      setSelectedDocSection(section);
-      setIsDocModalOpen(true);
-  };
-
-  const handleCloseDocModal = () => {
-      setIsDocModalOpen(false);
-      setSelectedDocSection(null);
+  const handleGemSelectionChange = (gemName: string, selected: boolean) => {
+    setSelectedGems(prev => {
+      const next = new Set(prev);
+      if (selected) next.add(gemName); else next.delete(gemName);
+      return next;
+    });
   };
 
   const handleClearRAG = () => {
@@ -286,6 +346,10 @@ function parseGemfile(content: string): GemInfo[] {
     }
   };
 
+  const handleStatusComplete = () => {
+    setView('chat');
+  };
+
   if (view === 'landing') {
     return <LandingPage onEnterApp={() => setView('setup')} />;
   }
@@ -294,12 +358,8 @@ function parseGemfile(content: string): GemInfo[] {
     return <SetupPage onConfigured={handleConfigured} />;
   }
 
-  const ragStats = aiProvider instanceof RAGProvider && aiProvider.isRAGReady() 
-    ? aiProvider.getRAGStats() 
-    : null;
-
-  return (
-    <>
+  if (view === 'upload') {
+    return (
       <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
         <main className="max-w-6xl mx-auto">
           <header className="text-center mb-8 relative">
@@ -307,184 +367,71 @@ function parseGemfile(content: string): GemInfo[] {
               AI Code-Scribe
             </h1>
             <p className="text-slate-400 text-lg">
-              Upload your codebase to generate your knowledge base.
+              Upload your dependencies and project files.
             </p>
-             <div className="absolute top-0 right-0 text-right">
-                <p className="text-sm font-semibold text-slate-300">{chatConfig?.providerName}</p>
-                <p className="text-xs text-slate-500">{chatConfig?.model}</p>
+            <div className="absolute top-0 right-0 text-right">
+              <p className="text-sm font-semibold text-slate-300">{chatConfig?.providerName}</p>
+              <p className="text-xs text-slate-500">{chatConfig?.model}</p>
             </div>
           </header>
 
-          <div className="space-y-6">
-            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 shadow-lg">
-              <div className="flex flex-col lg:flex-row gap-6">
-                {/* Gemfile Upload */}
-                <div className="flex-1 flex flex-col">
-                  <h2 className="text-2xl font-semibold mb-4 text-cyan-400">1. Upload Dependencies</h2>
-                  <div className="flex-grow w-full h-48 md:h-64 border-2 border-dashed border-slate-600 rounded-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:border-cyan-500 bg-slate-900 transition-all duration-200 flex items-center justify-center">
-                      <input
-                        ref={gemfileInputRef}
-                        type="file"
-                        id="gemfile-upload"
-                        onChange={(e) => handleFileChange(e, 'gemfile')}
-                        disabled={isLoading}
-                        className="sr-only"
-                      />
-                      <label
-                        htmlFor="gemfile-upload"
-                        className={`w-full h-full flex flex-col items-center justify-center text-center p-4 rounded-lg transition-colors ${isLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-800/50'}`}
-                      >
-                        {gemfileName ? (
-                          <>
-                            <FileIcon color="text-cyan-400"/>
-                            <span className="mt-2 font-sans font-semibold text-cyan-400 break-all">{gemfileName}</span>
-                            <span className="mt-1 text-xs text-slate-400">Click to choose a different file</span>
-                          </>
-                        ) : (
-                          <>
-                            <UploadIcon />
-                            <span className="mt-2 font-sans font-semibold text-slate-300">Click to upload dependency file</span>
-                            <span className="mt-1 text-xs text-slate-400">e.g., Gemfile, package.json</span>
-                          </>
-                        )}
-                      </label>
-                    </div>
-                </div>
-                
-                {/* Project JSON Upload */}
-                <div className="flex-1 flex flex-col">
-                  <h2 className="text-2xl font-semibold mb-4 text-green-400">2. Upload Project (JSON)</h2>
-                  <div className="flex-grow w-full h-48 md:h-64 border-2 border-dashed border-slate-600 rounded-md focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 bg-slate-900 transition-all duration-200 flex items-center justify-center">
-                      <input
-                        ref={projectFileInputRef}
-                        type="file"
-                        id="project-file-upload"
-                        accept=".json,application/json"
-                        onChange={(e) => handleFileChange(e, 'project')}
-                        disabled={isLoading}
-                        className="sr-only"
-                      />
-                      <label
-                        htmlFor="project-file-upload"
-                        className={`w-full h-full flex flex-col items-center justify-center text-center p-4 rounded-lg transition-colors ${isLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-800/50'}`}
-                      >
-                        {uploadedFileName ? (
-                          <>
-                            <FileIcon color="text-green-400"/>
-                            <span className="mt-2 font-sans font-semibold text-green-400 break-all">{uploadedFileName}</span>
-                            <span className="mt-1 text-xs text-slate-400">Click to choose a different file</span>
-                          </>
-                        ) : (
-                          <>
-                            <UploadIcon />
-                            <span className="mt-2 font-sans font-semibold text-slate-300">Click to upload JSON file</span>
-                            <span className="mt-1 text-xs text-slate-400">Contains your entire codebase.</span>
-                          </>
-                        )}
-                      </label>
-                    </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                    <label htmlFor="rag-toggle" className="font-semibold text-slate-300">Enable RAG</label>
-                    <input 
-                        id="rag-toggle"
-                        type="checkbox" 
-                        checked={enableRAG} 
-                        onChange={(e) => setEnableRAG(e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500"
-                    />
-                </div>
-                <button
-                  onClick={handleGenerateClick}
-                  disabled={!gemfileContent || !projectFilesContent || isLoading}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 font-semibold text-white bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-slate-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <>
-                      <LoaderIcon />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <SparklesIcon />
-                      Generate Knowledge Base
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg">
-                <p className="font-semibold">An Error Occurred</p>
-                <p>{error}</p>
-              </div>
-            )}
-
-            {isLoading && docSections.length === 0 && (
-              <div className="flex justify-center items-center flex-col gap-4 bg-slate-800/50 rounded-lg p-12 border border-slate-700 shadow-lg">
-                  <LoaderIcon />
-                  <p className="text-lg text-slate-300 animate-pulse">Analyzing your project with {chatConfig?.providerName}... this may take a moment.</p>
-              </div>
-            )}
-
-            {docSections.length > 0 && !isLoading && (
-              <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                  <div className="w-full lg:w-1/4">
-                    <DocumentationSidebar sections={docSections} gems={gems} onSectionClick={handleDocSectionClick} />
-                    {ragStats && (
-                        <div className="mt-4 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                            <h3 className="font-semibold text-lg text-indigo-300 mb-2">RAG Status</h3>
-                            <p className="text-sm text-slate-400">
-                                <span className="font-bold">{ragStats.totalChunks}</span> chunks indexed
-                            </p>
-                            <p className="text-xs text-slate-500">
-                                ({ragStats.docChunks} from docs, {ragStats.codeChunks} from code)
-                            </p>
-                            <button 
-                                onClick={handleClearRAG}
-                                className="mt-3 w-full text-center px-3 py-1.5 text-xs font-semibold bg-red-800/50 hover:bg-red-700/50 rounded-md transition-colors"
-                            >
-                                Clear RAG Data
-                            </button>
-                        </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                      <ChatInterface
-                          history={chatHistory}
-                          isLoading={isChatLoading}
-                          onSendMessage={handleSendMessage}
-                          isBacklogLoading={isBacklogLoading}
-                          onGenerateBacklog={handleGenerateBacklog}
-                      />
-                  </div>
-              </div>
-            )}
-          </div>
+          <UploadPage
+            gemfileContent={gemfileContent}
+            projectFilesContent={projectFilesContent}
+            gemfileName={gemfileName}
+            uploadedFileName={uploadedFileName}
+            isLoading={isLoading}
+            error={error}
+            gems={gems}
+            selectedGems={selectedGems}
+            handleFileChange={handleFileChange}
+            handleGenerateClick={handleGenerateClick}
+            setSelectedGems={setSelectedGems}
+          />
 
           <footer className="text-center mt-12 text-slate-500 text-sm">
-              <p>Powered by AI. Built with React & Tailwind CSS.</p>
+            <p>Powered by AI. Built with React & Tailwind CSS.</p>
           </footer>
         </main>
       </div>
-      <BacklogDisplayModal
-        isOpen={isBacklogVisible}
-        isLoading={isBacklogLoading}
-        jsonContent={backlogJson}
-        onClose={() => setIsBacklogVisible(false)}
+    );
+  }
+
+  if (view === 'status') {
+    return (
+      <StatusPage
+        isLoading={isLoading}
+        progress={progress}
         error={error}
+        onComplete={handleStatusComplete}
       />
-      <DocumentationDetailModal
-        isOpen={isDocModalOpen}
-        section={selectedDocSection}
-        onClose={handleCloseDocModal}
+    );
+  }
+
+  if (view === 'chat') {
+    return (
+      <MainChatPage
+        chatHistory={chatHistory}
+        isChatLoading={isChatLoading}
+        onSendMessage={handleSendMessage}
+        docSections={docSections}
+        gems={gems}
+        selectedGems={selectedGems}
+        onGemSelectionChange={handleGemSelectionChange}
+        aiProvider={aiProvider}
+        isBacklogLoading={isBacklogLoading}
+        onGenerateBacklog={handleGenerateBacklog}
+        backlogJson={backlogJson}
+        isBacklogVisible={isBacklogVisible}
+        setIsBacklogVisible={setIsBacklogVisible}
+        error={error}
+        onClearRAG={handleClearRAG}
+        chatConfig={chatConfig}
       />
-    </>
-  );
+    );
+  }
+
+  return null;
 };
 
 export default App;
