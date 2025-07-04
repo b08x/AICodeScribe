@@ -97,7 +97,7 @@ AI Code-Scribe is a React-based web application that analyzes your codebase and 
 
 ## 📁 Project Structure
 
-```
+```shell
 AICodeScribe/
 ├── components/           # React components
 │   ├── icons/           # SVG icon components
